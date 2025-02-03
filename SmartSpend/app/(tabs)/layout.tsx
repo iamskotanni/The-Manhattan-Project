@@ -1,105 +1,92 @@
-import React, { useState } from "react";
-import PageView, { Text, View } from "@/components/Themed";
-import { Alert, Button, StyleSheet, TextInput } from "react-native";
-import { Link, router } from "expo-router";
-
-function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false)
-
-  async function handleLogin() {
-    setLoading(true)
-    console.log("hello");
-    
-    // try login with entered details
-    const { data, error } = await signInWithEmailAndPassword(email, password);
-    // if successfull go to onboarding
-    if (data.user) {
-      router.replace("onboarding");
-
-      // clear fields
-      setEmail("");
-      setPassword("");
-
-      setLoading(false)
-    }
-    // otherwise display error
-    if (error){
-      Alert.alert(error.name, error.message)
-      setLoading(false)
-    }
-  }
-
-  return (
-    <PageView
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "100%",
-        gap: 30,
-        backgroundColor: "#2A2D57",
-      }}
-    >
-      <Text style={{ color: "white", fontSize: 26 }}>Welcome Back</Text>
-      <View
-        style={{
-          display: "flex",
-          gap: 20,
-          width: "80%",
-          backgroundColor: "#2A2D57",
-        }}
-      >
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={(val) => setEmail(val)}
-          placeholder="Email"
-          placeholderTextColor={"lightgray"}
-          keyboardType="email-address"
-          returnKeyType="next"
-          autoCapitalize="none"
-        />
-
-        <TextInput
-          style={styles.input}
-          value={password}
-          onChangeText={(val) => setPassword(val)}
-          placeholder="Password"
-          placeholderTextColor={"lightgray"}
-          keyboardType="visible-password"
-          autoCapitalize="none"
-        />
-
-        <Link
-          style={{
-            alignSelf: "flex-end",
-            color: "white",
-          }}
-          href={"/(auth)/forgotpassword"}
-        >
-          Forgot Password?
-        </Link>
-      </View>
-
-      {/* TODO: Add actual auth flow */}
-      <AppButton isLoading={loading} disabled={loading} onPress={handleLogin} title="LOGIN" />
-    </PageView>
-  );
-}
+import React, { useEffect } from "react";
+import {  Redirect, Tabs, router } from "expo-router";
 
 import Colors from "@/constants/Colors";
-import AppButton from "@/components/core/AppButton";
-import { signInWithEmailAndPassword } from "@/api/auth";
+import { useColorScheme } from "@/components/useColorScheme";
+import { useClientOnlyValue } from "@/components/useClientOnlyValue";
+import { Ionicons } from "@expo/vector-icons";
+import { getUser } from "@/api/auth";
+import { supabase } from "@/data/supabase";
 
-const styles = StyleSheet.create({
-  input: {
-    borderBottomWidth: 1.5,
-    borderColor: Colors.light.tint,
-    padding: 16,
-    color: "white",
-  },
-});
+// You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
+function TabBarIcon(props: {
+  name: React.ComponentProps<typeof Ionicons>["name"];
+  color: string;
+}) {
+  return <Ionicons size={28} style={{ marginBottom: -3 }} {...props} />;
+}
 
-export default LoginPage;
+export default function TabLayout() {
+  const colorScheme = useColorScheme();
+
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        router.replace("/(tabs)/");
+      } else {
+        console.log("no user");
+      }
+    });
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        router.replace("/(tabs)/");
+      } else {
+        console.log("no user");
+        router.replace("/(auth)/login");
+      }
+    });
+  }, []);
+
+
+
+  return (
+    <Tabs
+      screenOptions={{
+        tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
+        // Disable the static render of the header on web
+        // to prevent a hydration error in React Navigation v6.
+        headerShown: useClientOnlyValue(false, true),
+      }}
+    >
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: "Home",
+          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="analysis"
+        options={{
+          title: "Analysis",
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon name="analytics" color={color} />
+          ),
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="budget"
+        options={{
+          title: "Budget",
+          tabBarIcon: ({ color }) => <TabBarIcon name="cash" color={color} />,
+          headerShown: false,
+        }}
+      />
+
+      <Tabs.Screen
+        name="more"
+        options={{
+          title: "More",
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon name="ellipsis-horizontal" color={color} />
+          ),
+          headerShown: false,
+        }}
+      />
+    </Tabs>
+  );
+}
